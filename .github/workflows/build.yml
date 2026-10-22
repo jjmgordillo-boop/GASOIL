@@ -22,10 +22,8 @@ jobs:
           pip install flet
 
       - name: Build Android APK
-        env:
-          CI: "true"
         run: |
-          flet build apk
+          echo "y" | flet build apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
