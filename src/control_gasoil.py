@@ -62,37 +62,44 @@ def main(page: ft.Page):
     DNI_AUTORIZADO = "48862156j"
     NOMBRE_AUTORIZADO = "jesus"
 
-    # Función robusta y asíncrona para compartir el Excel en Android / Tablets
+    # Función robusta para compartir o exportar el Excel sin errores de atributos
     async def compartir_excel_chof(e):
         if session["workbook"] is None:
             set_status("⚠️ No hay ningún Excel cargado para compartir.", RED)
             return
 
         try:
+            # Si estamos en web o da problemas el puente nativo, usamos exportar/guardar archivo
             if page.web:
-                set_status("⚠️ La función de compartir archivos nativa no está disponible en modo web.", RED)
+                await exportar_excel(sufijo="compartir")
                 return
-            
-            # Obtenemos el directorio de documentos de la tablet de forma asíncrona (con await)
+
             directory = await storage_paths.get_application_documents_directory()
             os.makedirs(directory, exist_ok=True)
             path_excel_fisico = os.path.join(directory, persisted_workbook_name)
 
-            # Volcamos los bytes actuales del workbook al archivo físico de la tablet
             with open(path_excel_fisico, "wb") as f:
                 f.write(session["workbook"])
 
             if os.path.exists(path_excel_fisico):
-                page.share_files(
-                    files=[path_excel_fisico],
-                    subject="Registros Excel - Control Gasoil",
-                    text="Aquí tienes el archivo Excel actualizado con los registros de la flota."
-                )
+                try:
+                    page.share_files(
+                        files=[path_excel_fisico],
+                        subject="Registros Excel - Control Gasoil",
+                        text="Aquí tienes el archivo Excel actualizado con los registros de la flota."
+                    )
+                except Exception:
+                    # Alternativa segura si el sistema operativo bloquea la acción directa
+                    await exportar_excel(sufijo="compartir")
             else:
-                set_status("⚠️ El archivo Excel físico no se pudo generar para compartir.", RED)
+                set_status("⚠️ El archivo Excel físico no se pudo generar.", RED)
 
         except Exception as ex:
-            set_status(f"⚠️ Error al intentar compartir el archivo: {ex}", RED)
+            # Fallback seguro para abrir el diálogo de guardado/descarga si la API nativa falla
+            try:
+                await exportar_excel(sufijo="compartir")
+            except Exception:
+                set_status(f"⚠️ Error al compartir: {ex}", RED)
 
     # Creamos el botón de compartir (solo aparece si coincide tu DNI)
     def crear_boton_compartir():
@@ -108,7 +115,7 @@ def main(page: ft.Page):
             return ft.IconButton(
                 icon=ft.Icons.SHARE,
                 icon_size=22,
-                tooltip="Compartir Excel (WhatsApp / Bluetooth)",
+                tooltip="Compartir / Guardar Excel",
                 icon_color=BLUE_MAIN,
                 on_click=compartir_excel_chof
             )
