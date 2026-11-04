@@ -62,8 +62,8 @@ def main(page: ft.Page):
     DNI_AUTORIZADO = "48862156j"
     NOMBRE_AUTORIZADO = "jesus"
 
-    # Función robusta para compartir el Excel de forma nativa en Android / Tablets
-    def compartir_excel_chof(e):
+    # Función robusta y asíncrona para compartir el Excel en Android / Tablets
+    async def compartir_excel_chof(e):
         if session["workbook"] is None:
             set_status("⚠️ No hay ningún Excel cargado para compartir.", RED)
             return
@@ -73,8 +73,8 @@ def main(page: ft.Page):
                 set_status("⚠️ La función de compartir archivos nativa no está disponible en modo web.", RED)
                 return
             
-            # Obtenemos el directorio de documentos de la tablet y creamos la ruta física absoluta
-            directory = storage_paths.get_application_documents_directory()
+            # Obtenemos el directorio de documentos de la tablet de forma asíncrona (con await)
+            directory = await storage_paths.get_application_documents_directory()
             os.makedirs(directory, exist_ok=True)
             path_excel_fisico = os.path.join(directory, persisted_workbook_name)
 
