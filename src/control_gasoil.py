@@ -62,29 +62,43 @@ def main(page: ft.Page):
     DNI_AUTORIZADO = "48862156j"
     NOMBRE_AUTORIZADO = "jesus"
 
-    # Función para compartir el Excel de forma nativa
+    # Función robusta para compartir el Excel de forma nativa en Android / Tablets
     def compartir_excel_chof(e):
-        ruta_excel = "gasoil_registros.xlsx"
-        # Si tienes el archivo en memoria o guardado localmente, aseguramos su exportación
-        if session["workbook"] is not None:
-            try:
+        if session["workbook"] is None:
+            set_status("⚠️ No hay ningún Excel cargado para compartir.", RED)
+            return
+
+        try:
+            if page.web:
+                set_status("⚠️ La función de compartir archivos nativa no está disponible en modo web.", RED)
+                return
+            
+            # Obtenemos el directorio de documentos de la tablet y creamos la ruta física absoluta
+            directory = storage_paths.get_application_documents_directory()
+            os.makedirs(directory, exist_ok=True)
+            path_excel_fisico = os.path.join(directory, persisted_workbook_name)
+
+            # Volcamos los bytes actuales del workbook al archivo físico de la tablet
+            with open(path_excel_fisico, "wb") as f:
+                f.write(session["workbook"])
+
+            if os.path.exists(path_excel_fisico):
                 page.share_files(
-                    files=[persisted_workbook_name if not page.web else "fleet_workbook.xlsx"],
+                    files=[path_excel_fisico],
                     subject="Registros Excel - Control Gasoil",
                     text="Aquí tienes el archivo Excel actualizado con los registros de la flota."
                 )
-            except Exception as ex:
-                set_status(f"⚠️ Error al compartir: {ex}", RED)
-        else:
-            set_status("⚠️ No hay ningún Excel cargado para compartir.", RED)
+            else:
+                set_status("⚠️ El archivo Excel físico no se pudo generar para compartir.", RED)
 
-    # Creamos el botón de compartir (solo visible/creado si coincide tu DNI)
-    # Comprobaremos el DNI introducido en txt_dni en tiempo real o por defecto oculto si no coincide
+        except Exception as ex:
+            set_status(f"⚠️ Error al intentar compartir el archivo: {ex}", RED)
+
+    # Creamos el botón de compartir (solo aparece si coincide tu DNI)
     def crear_boton_compartir():
         dni_actual = str(txt_dni.value or "").strip().lower()
         nombre_actual = str(txt_conductor.value or "").strip().lower()
         
-        # Validación estricta
         es_autorizado = (
             dni_actual == DNI_AUTORIZADO and 
             NOMBRE_AUTORIZADO in nombre_actual
@@ -100,7 +114,7 @@ def main(page: ft.Page):
             )
         return ft.Container()
 
-    # Contenedor dinámico para el botón superior derecho
+    # Contenedor dinámico para el icono superior derecho
     contenedor_icono_compartir = ft.Container(content=ft.Container())
 
     dd_tipo_vehiculo = ft.Dropdown(
@@ -371,7 +385,6 @@ def main(page: ft.Page):
             if not matches.empty:
                 txt_conductor.value = str(matches.iloc[0][conductor_column])
         
-        # Actualizamos dinámicamente si aparece o desaparece el botón de compartir arriba a la derecha
         contenedor_icono_compartir.content = crear_boton_compartir()
         update_navigation()
         page.update()
@@ -713,9 +726,6 @@ def main(page: ft.Page):
         controls=[btn_atras, btn_adelante, btn_anadir],
     )
 
-    # ==========================================================
-    # 🌟 CABECERA SUPERIOR MODIFICADA (Títulos + Icono a la derecha)
-    # ==========================================================
     header_cabecera = ft.Row(
         controls=[
             ft.Column(
@@ -726,7 +736,7 @@ def main(page: ft.Page):
                     ft.Text("Registro guiado de la flota", color=BLUE_DARK),
                 ],
             ),
-            contenedor_icono_compartir,  # <--- Aquí aparece el icono de compartir arriba a la derecha solo para Jesús
+            contenedor_icono_compartir,
         ],
         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         vertical_alignment=ft.CrossAxisAlignment.START,
